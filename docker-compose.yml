@@ -1,0 +1,44 @@
+version: '3.7'
+
+services:
+  consumer:
+    build: .
+    command: ./app
+    depends_on:
+      - nats-streaming
+    ports:
+      - ${PORT}:8080
+    restart: unless-stopped
+
+  producer:
+    build: .
+    profiles:
+      - none
+    command: ./producer -c ${COUNT:-1}
+
+  db:
+    image: postgres
+    env_file:
+      - config/.env
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - ${DB_PORT}:5432
+    restart: unless-stopped
+
+  nats-streaming:
+    container_name: nats
+    image: nats-streaming
+    ports:
+      - "4222:4222"
+    restart: unless-stopped
+
+  nats-listener:
+    image: synadia/nats-box
+    platform: linux/amd64
+    entrypoint: "stan-sub -s nats://nats:4222 orders"
+    depends_on:
+      - nats-streaming
+    restart: unless-stopped
